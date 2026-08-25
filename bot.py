@@ -6,7 +6,7 @@ from discord.ext import commands
 import datetime
 import asyncio
 
-# سيرفر تأكيد حالة Live لـ Render
+# سيرفر تأكيد حالة Live في Render
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -33,8 +33,8 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# ضع أيديات الأشخاص المعفيين من العقاب هنا (مفصول بينهم بفاصلة)
-WHITELIST_IDS = [123456789012345678] 
+# ضع هنا أيديات الأشخاص المسموح لهم بالطرد بدون عقاب (مثلاً أيديك)
+WHITELIST_IDS = [] 
 
 @bot.event
 async def on_ready():
@@ -42,19 +42,26 @@ async def on_ready():
 
 @bot.event
 async def on_voice_state_update(member, before, after):
+    # خروج عضو من روم صوتي
     if before.channel is not None and after.channel is None:
         try:
-            await asyncio.sleep(1)
-            async for entry in member.guild.audit_logs(limit=1, action=discord.AuditLogAction.member_disconnect):
+            # انتظار ثانية ونصف لضمان نزول العملية في Audit Log
+            await asyncio.sleep(1.5)
+            
+            # فحص آخر 5 سجلات لضمان لقط العملية حتى لو تأخر السجل
+            async for entry in member.guild.audit_logs(limit=5, action=discord.AuditLogAction.member_disconnect):
                 time_diff = datetime.datetime.now(datetime.timezone.utc) - entry.created_at
                 
-                if entry.target.id == member.id and time_diff.total_seconds() < 5:
+                # التأكد أن عملية الطرد تمت لنفس الشخص وخلال آخر 10 ثوانٍ
+                if entry.target and entry.target.id == member.id and time_diff.total_seconds() < 10:
                     executor = entry.user
                     
-                    # استثناء البوت، الشخص الذي طرد نفسه، والأشخاص في قائمة المسموح لهم
-                    if executor.id != member.id and not executor.bot and executor.id not in WHITELIST_IDS:
+                    # تجنب معاقبة البوت أو الشخص إذا طلع بنفسه أو الأشخاص في الـ Whitelist
+                    if executor and executor.id != member.id and not executor.bot and executor.id not in WHITELIST_IDS:
                         guild_executor = member.guild.get_member(executor.id)
+                        
                         if guild_executor:
+                            # إذا كان الفاعل متواجد في روم صوتي: ميوت + دِفن + طرد
                             if guild_executor.voice and guild_executor.voice.channel:
                                 await guild_executor.edit(
                                     mute=True, 
@@ -63,14 +70,15 @@ async def on_voice_state_update(member, before, after):
                                     reason="Anti-Disconnect Triggered"
                                 )
                             else:
+                                # إذا كان خارج الروم الصوتية: ميوت + دِفن
                                 await guild_executor.edit(
                                     mute=True, 
                                     deafen=True, 
                                     reason="Anti-Disconnect Triggered"
                                 )
-                            print(f"🚨 تم صك ميوت ودِفن وديسكونكت لـ {guild_executor.name}")
+                            print(f"🚨 تم صك {guild_executor.name} ميوت ودِفن وديسكونكت!")
                         break
         except Exception as e:
-            print(f"خطأ: {e}")
+            print(f"خطأ أثناء معالجة السجل: {e}")
 
 bot.run(os.environ.get('BOT_TOKEN'))
