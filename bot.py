@@ -6,7 +6,7 @@ from discord.ext import commands
 import datetime
 import asyncio
 
-# سيرفر تأكيد حالة Live في Render
+# سيرفر لتأكيد حالة Live في Render
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -33,44 +33,44 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# الأيدي الخاص بك (معفي من العقاب)
+# الأيدي الخاص بك المحمي
 MY_USER_ID = 1188601839751532660
 
 @bot.event
 async def on_ready():
-    print(f'✅ البوت شغال وجاهز باسم: {bot.user}')
+    print(f'✅ نظام الحماية الشخصية شغال وجاهز باسم: {bot.user}')
 
 @bot.event
 async def on_voice_state_update(member, before, after):
-    # خروج عضو من روم صوتي
-    if before.channel is not None and after.channel is None:
+    # الشرط الأول: الفحص يتفعل فقط إذا كان الشخص الذي خرج من الروم هو "أنت"
+    if member.id == MY_USER_ID and before.channel is not None and after.channel is None:
+        print("🚨 تم اكتشاف خروجك من الروم، جاري فحص مين اللي عطاك ديسكونكت...")
+        await asyncio.sleep(1)
+        
         try:
-            await asyncio.sleep(1.5)
-            
-            async for entry in member.guild.audit_logs(limit=5, action=discord.AuditLogAction.member_disconnect):
+            async for entry in member.guild.audit_logs(limit=3, action=discord.AuditLogAction.member_disconnect):
                 time_diff = datetime.datetime.now(datetime.timezone.utc) - entry.created_at
                 
-                # فحص الحدث خلال آخر 10 ثوانٍ
-                if entry.target and entry.target.id == member.id and time_diff.total_seconds() < 10:
+                # التأكد أن الهدف في السجل هو أنت وأن الطرد تم خلال آخر 8 ثوانٍ
+                if entry.target and entry.target.id == MY_USER_ID and time_diff.total_seconds() < 8:
                     executor = entry.user
                     
-                    # استثناء البوت، الشخص الذي طرد نفسه، وأنت صاحب الأيدي المكتوب
-                    if executor and executor.id != member.id and executor.id != MY_USER_ID and not executor.bot:
+                    # استثناء إذا طلعت بنفسك أو كان الفاعل بوت
+                    if executor and executor.id != MY_USER_ID and not executor.bot:
                         guild_executor = member.guild.get_member(executor.id)
                         
                         if guild_executor:
-                            # 1. إعطاء ميوت ودِفن
-                            await guild_executor.edit(
-                                mute=True, 
-                                deafen=True, 
-                                reason="Anti-Disconnect Triggered"
-                            )
-                            
-                            # 2. طرده من الروم الصوتي إذا كان متواجد
-                            if guild_executor.voice and guild_executor.voice.channel:
-                                await guild_executor.move_to(None)
+                            try:
+                                # 1. صك الفاعل ميوت ودِفن
+                                await guild_executor.edit(mute=True, deafen=True, reason="Anti-Disconnect System (Protected User)")
                                 
-                            print(f"🚨 تم صك الفاعل ({guild_executor.name} - ID: {guild_executor.id}) ميوت ودِفن وديسكونكت!")
+                                # 2. طرده من الروم الصوتي إذا كان متواجد داخل روم
+                                if guild_executor.voice and guild_executor.voice.channel:
+                                    await guild_executor.move_to(None)
+                                    
+                                print(f"🔥 تم الانتقام! صك {guild_executor.name} ميوت ودِفن وديسكونكت لأنه طردك!")
+                            except discord.Forbidden:
+                                print(f"❌ ما قدر يعاقبه: رتبة البوت أقل من رتبة {guild_executor.name}، ارفع رتبة البوت فوق رتبته!")
                         break
         except Exception as e:
             print(f"خطأ أثناء الفحص: {e}")
