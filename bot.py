@@ -41,5 +41,7 @@ async def on_voice_state_update(member, before, after):
         except Exception as e:
             print(f"خطأ أثناء فحص السجل: {e}")
 
-# استبدل التوكن الجديد بالتوكن المولّد حديثاً من موقع ديسكورد
-bot.run('MTU0MDc3ODY1MDIwMTM2MjQ1NA.GcpnYR.uesJr7u4sIWtJsT1-74FKLnO_LDQ0RAowb8Icc')
+import os
+
+# بدل السطر الأخير القديم حط هذا السطر:
+bot.run(os.environ.get('BOT_TOKEN'))
