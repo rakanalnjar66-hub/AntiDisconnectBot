@@ -33,8 +33,8 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# ضع هنا أيديات الأشخاص المسموح لهم بالطرد بدون عقاب (مثلاً أيديك)
-WHITELIST_IDS = [] 
+# الأيدي الخاص بك (معفي من العقاب)
+MY_USER_ID = 1188601839751532660
 
 @bot.event
 async def on_ready():
@@ -45,40 +45,34 @@ async def on_voice_state_update(member, before, after):
     # خروج عضو من روم صوتي
     if before.channel is not None and after.channel is None:
         try:
-            # انتظار ثانية ونصف لضمان نزول العملية في Audit Log
             await asyncio.sleep(1.5)
             
-            # فحص آخر 5 سجلات لضمان لقط العملية حتى لو تأخر السجل
             async for entry in member.guild.audit_logs(limit=5, action=discord.AuditLogAction.member_disconnect):
                 time_diff = datetime.datetime.now(datetime.timezone.utc) - entry.created_at
                 
-                # التأكد أن عملية الطرد تمت لنفس الشخص وخلال آخر 10 ثوانٍ
+                # فحص الحدث خلال آخر 10 ثوانٍ
                 if entry.target and entry.target.id == member.id and time_diff.total_seconds() < 10:
                     executor = entry.user
                     
-                    # تجنب معاقبة البوت أو الشخص إذا طلع بنفسه أو الأشخاص في الـ Whitelist
-                    if executor and executor.id != member.id and not executor.bot and executor.id not in WHITELIST_IDS:
+                    # استثناء البوت، الشخص الذي طرد نفسه، وأنت صاحب الأيدي المكتوب
+                    if executor and executor.id != member.id and executor.id != MY_USER_ID and not executor.bot:
                         guild_executor = member.guild.get_member(executor.id)
                         
                         if guild_executor:
-                            # إذا كان الفاعل متواجد في روم صوتي: ميوت + دِفن + طرد
+                            # 1. إعطاء ميوت ودِفن
+                            await guild_executor.edit(
+                                mute=True, 
+                                deafen=True, 
+                                reason="Anti-Disconnect Triggered"
+                            )
+                            
+                            # 2. طرده من الروم الصوتي إذا كان متواجد
                             if guild_executor.voice and guild_executor.voice.channel:
-                                await guild_executor.edit(
-                                    mute=True, 
-                                    deafen=True, 
-                                    voice_channel=None, 
-                                    reason="Anti-Disconnect Triggered"
-                                )
-                            else:
-                                # إذا كان خارج الروم الصوتية: ميوت + دِفن
-                                await guild_executor.edit(
-                                    mute=True, 
-                                    deafen=True, 
-                                    reason="Anti-Disconnect Triggered"
-                                )
-                            print(f"🚨 تم صك {guild_executor.name} ميوت ودِفن وديسكونكت!")
+                                await guild_executor.move_to(None)
+                                
+                            print(f"🚨 تم صك الفاعل ({guild_executor.name} - ID: {guild_executor.id}) ميوت ودِفن وديسكونكت!")
                         break
         except Exception as e:
-            print(f"خطأ أثناء معالجة السجل: {e}")
+            print(f"خطأ أثناء الفحص: {e}")
 
 bot.run(os.environ.get('BOT_TOKEN'))
