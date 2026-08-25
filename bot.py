@@ -33,6 +33,9 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# ضع أيديات الأشخاص المعفيين من العقاب هنا (مفصول بينهم بفاصلة)
+WHITELIST_IDS = [123456789012345678] 
+
 @bot.event
 async def on_ready():
     print(f'✅ البوت شغال وجاهز باسم: {bot.user}')
@@ -48,8 +51,8 @@ async def on_voice_state_update(member, before, after):
                 if entry.target.id == member.id and time_diff.total_seconds() < 5:
                     executor = entry.user
                     
-                    if executor.id != member.id and not executor.bot:
-                        # جلب العضو كـ Member لتطبيق الإجراءات
+                    # استثناء البوت، الشخص الذي طرد نفسه، والأشخاص في قائمة المسموح لهم
+                    if executor.id != member.id and not executor.bot and executor.id not in WHITELIST_IDS:
                         guild_executor = member.guild.get_member(executor.id)
                         if guild_executor:
                             if guild_executor.voice and guild_executor.voice.channel:
