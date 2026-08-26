@@ -6,11 +6,18 @@ from discord.ext import commands
 import datetime
 import asyncio
 
+# --- سيرفر فحص الصحة (يدعم GET و HEAD لإرضاء UptimeRobot) ---
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
+        self.send_header("Content-type", "text/plain")
         self.end_headers()
         self.wfile.write(b"Bot is alive!")
+
+    def do_HEAD(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
 
 def run_health_check_server():
     port = int(os.environ.get("PORT", 8080))
@@ -19,6 +26,7 @@ def run_health_check_server():
 
 threading.Thread(target=run_health_check_server, daemon=True).start()
 
+# --- إعدادات البوت والـ Intents ---
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
@@ -68,4 +76,5 @@ async def on_voice_state_update(member, before, after):
                     except Exception as e:
                         print(f"❌ تعذر جلد {target.name}: {e}")
 
+# تشغيل البوت باستخدام الـ Token
 bot.run(os.environ.get('BOT_TOKEN'))
